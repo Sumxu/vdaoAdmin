@@ -3,10 +3,10 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/member/withdraw";
+import * as $Api from "@/api/member/teamDeposit";
 import message from "@/utils/message";
-import { ElMessage } from "element-plus";
 import { fromWei, callContractMethod } from "@/utils/wallet";
+import { ElMessage } from "element-plus";
 import {
   depositStatusOptions,
   amountOptions,
@@ -21,10 +21,20 @@ import {
   pidMapConvert,
   pidScopeConvert
 } from "@/constants/convert";
-import { downloadExcel } from "@/utils/downloadExcel";
 import { contractAddress } from "@/config/contract";
 import { saveExcelFile } from "@/utils/file";
 import StatusTabs from "@/components/opts/status-tabs.vue";
+const depositTypeMap = {
+  1: "入单",
+  2: "抢单",
+  3: "复投",
+  4: "排单"
+};
+const perTypeMap = {
+  1: "1%",
+  2: "1.5%",
+  3: "2%"
+};
 const pageData: any = reactive({
   searchState: true,
   searchForm: {},
@@ -37,30 +47,6 @@ const pageData: any = reactive({
       label: "钱包地址",
       prop: "address",
       placeholder: "请输入钱包地址"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "赎回日期范围",
-      prop: "dates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
-    },
-    {
-      type: "radio",
-      label: "类型",
-      prop: "queryType",
-      default: 1,
-      dataSourceKey: "pledgeTypeOptions",
-      options: {
-        filterable: true,
-        keys: {
-          prop: "prop",
-          value: "value",
-          label: "label"
-        }
-      }
     }
   ],
   dataSource: {
@@ -74,15 +60,7 @@ const pageData: any = reactive({
   },
   btnOpts: {
     size: "small",
-    leftBtns: [
-      {
-        key: "promotion",
-        label: "导出报表",
-        icon: "ep:promotion",
-        state: true,
-        loading: false
-      }
-    ],
+    leftBtns: [],
     rightBtns: [
       { key: "search", label: "查询", icon: "ep:search", state: true },
       { key: "refresh", label: "刷新", icon: "ep:refresh", state: true }
@@ -95,21 +73,47 @@ const pageData: any = reactive({
         prop: "address",
         width: "370px"
       },
-      { label: "天数", prop: "pid", minWidth: "120px", slot: "pidScope" },
       {
-        label: "是否复投",
-        prop: "isReinvestment",
-        minWidth: "120px",
-        slot: "booleanScope"
-      },
-      { label: "投入本钱", prop: "usdt", minWidth: "120px", slot: "usdtScope" },
-      {
-        label: "赎回额度",
+        label: "入单数量",
         prop: "amount",
         minWidth: "120px",
         slot: "usdtScope"
       },
-      { label: "赎回时间", prop: "createTime", width: "180px" }
+      {
+        label: "入单类型",
+        prop: "depositType",
+        width: "180px",
+        slot: "depositTypeScope"
+      },
+      {
+        label: "类型收益",
+        prop: "perType",
+        minWidth: "120px",
+        slot: "perTypeScope"
+      },
+      {
+        label: "是否手续费抵扣",
+        prop: "useFee",
+        minWidth: "140px",
+        slot: "useFeeScope"
+      },
+      {
+        label: "出局额度",
+        prop: "quota",
+        minWidth: "120px",
+        slot: "usdtScope"
+      },
+      { label: "已出局", prop: "dept", minWidth: "120px", slot: "usdtScope" },
+      {
+        label: "已产出",
+        prop: "production",
+        minWidth: "120px",
+        slot: "usdtScope"
+      },
+      { label: "下次产出时间", prop: "lastTime", width: "180px" },
+      { label: "状态", prop: "status", width: "180px", slot: "statusScope" },
+      { label: "更新时间", prop: "updateTime", width: "180px" },
+      { label: "创建时间", prop: "createTime", width: "180px" }
     ],
     list: [],
     loading: false,
@@ -190,15 +194,13 @@ const btnClickHandle = (key: string) => {
       break;
   }
 };
-
 //导出报表
 const deriveXlsx = async () => {
   const query = getQueryParams();
   pageData.btnOpts.leftBtns[0].loading = true;
-
   const result = await downloadExcel(
     () => $Api.exportXlsx(query),
-    "赎回记录.xlsx"
+    "用户质押.xlsx"
   );
   if (result.success) {
     ElMessage.success("导出成功");
@@ -207,6 +209,7 @@ const deriveXlsx = async () => {
     pageData.btnOpts.leftBtns[0].loading = false;
   }
 };
+
 const handleClick = (tabName: any) => {
   pageData.pid = tabName;
   _loadData();
@@ -230,11 +233,6 @@ onMounted(() => _loadData());
       :right-btns="pageData.btnOpts.rightBtns"
       @click="btnClickHandle"
     />
-    <status-tabs
-      v-model="pageData.pid"
-      :tabs="pidOptions"
-      @change="handleClick"
-    />
     <pure-table
       :data="pageData.tableParams.list"
       :columns="pageData.tableParams.columns"
@@ -246,9 +244,6 @@ onMounted(() => _loadData());
       @page-current-change="handleChangeCurrentPage"
       @page-size-change="handleChangePageSize"
     >
-      <template #pidScope="scope">
-        <span>{{ pidScopeConvert(scope.row[scope.column.property]) }}</span>
-      </template>
       <template #statusScope="scope">
         <el-tag
           :type="scope.row[scope.column.property] == 0 ? 'primary' : 'danger'"
@@ -256,18 +251,23 @@ onMounted(() => _loadData());
           {{ depositStatusConvert(scope.row[scope.column.property]) }}
         </el-tag>
       </template>
-
+      <template #useFeeScope="scope">
+        <el-tag
+          :type="
+            scope.row[scope.column.property] == true ? 'primary' : 'danger'
+          "
+        >
+          {{ scope.row[scope.column.property] == true ? "使用" : "没使用" }}
+        </el-tag>
+      </template>
       <template #usdtScope="scope">
         <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
       </template>
-
-      <template #booleanScope="scope">
-        <el-tag :type="scope.row['isReinvestment'] ? 'primary' : 'danger'">
-          {{ scope.row["isReinvestment"] ? "是" : "否" }}
-        </el-tag>
+      <template #perTypeScope="scope">
+        <span>{{ perTypeMap[scope.row[scope.column.property]] }}</span>
       </template>
-      <template #juScope="scope">
-        <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
+      <template #depositTypeScope="scope">
+        <span>{{ depositTypeMap[scope.row[scope.column.property]] }}</span>
       </template>
     </pure-table>
   </el-card>

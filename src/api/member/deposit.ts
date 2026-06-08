@@ -6,11 +6,13 @@ import { type Result, post, put, get } from "../base";
  * @returns .
  */
 export function queryPage<T>(data?: any): Promise<Result<T>> {
-  return post("/deposit/page", data);
+  return get("/member/memberDeposit/page", data);
 }
-export function exportXlsx<T>(data?: any): Promise<Result<T>> {
-  return post("/deposit/export", data, {
-    responseType: "blob",
-    timeout: 300000 // 5分钟
-  });
+
+export function upTeam<T>(data?: any): Promise<Result<T>> {
+  return post("/member/memberDeposit/updateBatchStatus", data);
+}
+
+export function upMember<T>(data?: any): Promise<Result<T>> {
+  return post("/member/memberDeposit/updateStatus", data);
 }

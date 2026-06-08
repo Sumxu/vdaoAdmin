@@ -6,8 +6,15 @@ import { PureTable } from "@pureadmin/table";
 import * as $Api from "@/api/member/deposit";
 import message from "@/utils/message";
 import { fromWei, callContractMethod } from "@/utils/wallet";
-import { downloadExcel } from "@/utils/downloadExcel";
-import { ElMessage } from "element-plus";
+import {
+  ElMessageBox,
+  ElMessage,
+  ElSelect,
+  ElRadio,
+  ElRadioGroup,
+  ElInput,
+  ElOption
+} from "element-plus";
 import {
   depositStatusOptions,
   amountOptions,
@@ -25,6 +32,17 @@ import {
 import { contractAddress } from "@/config/contract";
 import { saveExcelFile } from "@/utils/file";
 import StatusTabs from "@/components/opts/status-tabs.vue";
+const depositTypeMap = {
+  1: "入单",
+  2: "抢单",
+  3: "复投",
+  4: "排单"
+};
+const perTypeMap = {
+  1: "1%",
+  2: "1.5%",
+  3: "2%"
+};
 const pageData: any = reactive({
   searchState: true,
   searchForm: {},
@@ -37,69 +55,6 @@ const pageData: any = reactive({
       label: "钱包地址",
       prop: "address",
       placeholder: "请输入钱包地址"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "投入日期范围",
-      prop: "dates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "赎回日期范围",
-      prop: "redeemDates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
-    },
-    {
-      type: "select",
-      label: "状态",
-      prop: "status",
-      placeholder: "请选择",
-      dataSourceKey: "depositStatusOptions",
-      options: {
-        filterable: true,
-        keys: {
-          prop: "value",
-          value: "value",
-          label: "label"
-        }
-      }
-    },
-    {
-      type: "radio",
-      label: "类型",
-      prop: "queryType",
-      default: 1,
-      dataSourceKey: "pledgeTypeOptions",
-      options: {
-        filterable: true,
-        keys: {
-          prop: "prop",
-          value: "value",
-          label: "label"
-        }
-      }
-    },
-    {
-      type: "select",
-      label: "是否复投",
-      prop: "isRepetition",
-      placeholder: "请选择",
-      dataSourceKey: "isRepetitionOptions",
-      options: {
-        filterable: true,
-        keys: {
-          prop: "value",
-          value: "value",
-          label: "label"
-        }
-      }
     }
   ],
   dataSource: {
@@ -116,10 +71,9 @@ const pageData: any = reactive({
     leftBtns: [
       {
         key: "promotion",
-        label: "导出报表",
+        label: "修改释放状态",
         icon: "ep:promotion",
-        state: true,
-        loading: false
+        state: true
       }
     ],
     rightBtns: [
@@ -134,26 +88,47 @@ const pageData: any = reactive({
         prop: "address",
         width: "370px"
       },
-      { label: "天数", prop: "pid", minWidth: "120px", slot: "pidScope" },
       {
-        label: "是否复投",
-        prop: "ju",
+        label: "入单数量",
+        prop: "amount",
         minWidth: "120px",
-        slot: "booleanScope"
+        slot: "usdtScope"
       },
-      { label: "USDT", prop: "usdt", minWidth: "120px", slot: "usdtScope" },
-      { label: "JU", prop: "ju", minWidth: "120px", slot: "juScope" },
-      { label: "赎回时间", prop: "redeemTime", minWidth: "120px" },
       {
-        label: "产出收益",
-        prop: "outYield",
-        minWidth: "120px",
-        slot: "juScope"
+        label: "入单类型",
+        prop: "depositType",
+        width: "180px",
+        slot: "depositTypeScope"
       },
-      { label: "下一次产出时间", prop: "nextTime", minWidth: "160px" },
-      { label: "状态", prop: "status", minWidth: "120px", slot: "statusScope" },
-      { label: "投入时间", prop: "createTime", width: "180px" },
-      { label: "结束时间", prop: "endTime", width: "180px" }
+      {
+        label: "类型收益",
+        prop: "perType",
+        minWidth: "120px",
+        slot: "perTypeScope"
+      },
+      {
+        label: "是否手续费抵扣",
+        prop: "useFee",
+        minWidth: "140px",
+        slot: "useFeeScope"
+      },
+      {
+        label: "出局额度",
+        prop: "quota",
+        minWidth: "120px",
+        slot: "usdtScope"
+      },
+      { label: "已出局", prop: "dept", minWidth: "120px", slot: "usdtScope" },
+      {
+        label: "已产出",
+        prop: "production",
+        minWidth: "120px",
+        slot: "usdtScope"
+      },
+      { label: "下次产出时间", prop: "lastTime", width: "180px" },
+      { label: "状态", prop: "status", width: "180px", slot: "statusScope" },
+      { label: "更新时间", prop: "updateTime", width: "180px" },
+      { label: "创建时间", prop: "createTime", width: "180px" }
     ],
     list: [],
     loading: false,
@@ -230,26 +205,135 @@ const btnClickHandle = (key: string) => {
       _loadData();
       break;
     case "promotion":
-      deriveXlsx();
+      handleAddUser();
       break;
   }
 };
-//导出报表
-const deriveXlsx = async () => {
-  const query = getQueryParams();
-  pageData.btnOpts.leftBtns[0].loading = true;
-  const result = await downloadExcel(
-    () => $Api.exportXlsx(query),
-    "用户质押.xlsx"
-  );
-  if (result.success) {
-    ElMessage.success("导出成功");
-    pageData.btnOpts.leftBtns[0].loading = false;
-  } else {
-    pageData.btnOpts.leftBtns[0].loading = false;
-  }
-};
+//
+const handleAddUser = () => {
+  const address = ref("");
+  const type = ref("team");
+  const status = ref(0);
+  ElMessageBox({
+    title: "修改账户释放状态",
+    message: () =>
+      h(
+        "div",
+        {
+          style: "width:500px;display:flex;flex-direction:column;gap:16px;"
+        },
+        [
+          // 地址
+          h("div", [
+            h("div", { style: "margin-bottom:6px;" }, "钱包地址"),
+            h(ElInput, {
+              modelValue: address.value,
+              "onUpdate:modelValue": val => {
+                address.value = val;
+              },
+              placeholder: "请输入钱包地址"
+            })
+          ]),
+          // 单选
+          h("div", [
+            h("div", { style: "margin-bottom:6px;" }, "类型"),
+            h(
+              ElRadioGroup,
+              {
+                modelValue: type.value,
+                "onUpdate:modelValue": val => {
+                  type.value = val;
+                }
+              },
+              () => [
+                h(
+                  ElRadio,
+                  {
+                    value: "team"
+                  },
+                  () => "团队"
+                ),
+                h(
+                  ElRadio,
+                  {
+                    value: "personal"
+                  },
+                  () => "个人"
+                )
+              ]
+            )
+          ]),
 
+          // 状态
+          h("div", [
+            h("div", { style: "margin-bottom:6px;" }, "状态"),
+            h(
+              ElSelect,
+              {
+                modelValue: status.value,
+                "onUpdate:modelValue": val => {
+                  status.value = val;
+                },
+                placeholder: "请选择状态",
+                style: {
+                  width: "100%"
+                }
+              },
+              () => [
+                h(ElOption, {
+                  label: "恢复",
+                  value: 0
+                }),
+                h(ElOption, {
+                  label: "暂停",
+                  value: 2
+                })
+              ]
+            )
+          ])
+        ]
+      ),
+
+    showCancelButton: true,
+
+    beforeClose: async (action, instance, done) => {
+      if (action !== "confirm") {
+        done();
+        return;
+      }
+
+      if (!address.value) {
+        message.warning("请输入钱包地址");
+        return;
+      }
+
+      try {
+        instance.confirmButtonLoading = true;
+
+        const params = {
+          address: address.value,
+          type: type.value,
+          status: status.value
+        };
+
+        console.log(params);
+        if (params.type == "team") {
+          delete params.type;
+          const res = await $Api.upTeam(params);
+        } else {
+          delete params.type;
+          const res = await $Api.upMember(params);
+        }
+        done();
+        _loadData();
+      } catch (err) {
+        console.error(err);
+      } finally {
+        instance.confirmButtonLoading = false;
+      }
+    }
+  });
+};
 const handleClick = (tabName: any) => {
   pageData.pid = tabName;
   _loadData();
@@ -273,11 +357,6 @@ onMounted(() => _loadData());
       :right-btns="pageData.btnOpts.rightBtns"
       @click="btnClickHandle"
     />
-    <status-tabs
-      v-model="pageData.pid"
-      :tabs="pidOptions"
-      @change="handleClick"
-    />
     <pure-table
       :data="pageData.tableParams.list"
       :columns="pageData.tableParams.columns"
@@ -289,9 +368,6 @@ onMounted(() => _loadData());
       @page-current-change="handleChangeCurrentPage"
       @page-size-change="handleChangePageSize"
     >
-      <template #pidScope="scope">
-        <span>{{ pidScopeConvert(scope.row[scope.column.property]) }}</span>
-      </template>
       <template #statusScope="scope">
         <el-tag
           :type="scope.row[scope.column.property] == 0 ? 'primary' : 'danger'"
@@ -299,18 +375,23 @@ onMounted(() => _loadData());
           {{ depositStatusConvert(scope.row[scope.column.property]) }}
         </el-tag>
       </template>
-
+      <template #useFeeScope="scope">
+        <el-tag
+          :type="
+            scope.row[scope.column.property] == true ? 'primary' : 'danger'
+          "
+        >
+          {{ scope.row[scope.column.property] == true ? "使用" : "没使用" }}
+        </el-tag>
+      </template>
       <template #usdtScope="scope">
         <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
       </template>
-
-      <template #booleanScope="scope">
-        <el-tag :type="scope.row['ju'] == 0n ? 'primary' : 'danger'">
-          {{ fromWei(scope.row["ju"]) == 0 ? "是" : "否" }}
-        </el-tag>
+      <template #perTypeScope="scope">
+        <span>{{ perTypeMap[scope.row[scope.column.property]] }}</span>
       </template>
-      <template #juScope="scope">
-        <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
+      <template #depositTypeScope="scope">
+        <span>{{ depositTypeMap[scope.row[scope.column.property]] }}</span>
       </template>
     </pure-table>
   </el-card>

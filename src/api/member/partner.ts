@@ -6,6 +6,5 @@ import { type Result, post, put ,get} from "../base";
  * @returns .
  */
 export function queryPage<T>(data?: any): Promise<Result<T>> {
-  return get("/member/memberReward/page", data);
+  return get("/node/page", data);
 }
- 

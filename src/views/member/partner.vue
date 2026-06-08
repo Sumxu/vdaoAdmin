@@ -3,7 +3,7 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/member/teamClaim";
+import * as $Api from "@/api/member/partner";
 import message from "@/utils/message";
 import {
   formatAddress,
@@ -12,19 +12,11 @@ import {
   callContractMethod,
   toWei
 } from "@/utils/wallet";
-import { rewardTypeConvert } from "@/constants/convert";
+import { nodeLevelMapConvert } from "@/constants/convert";
 import { contractAddress } from "@/config/contract";
 import { downloadExcel } from "@/utils/downloadExcel";
 import { ElMessage } from "element-plus";
-const statusMap = {
-  0: "已领取",
-  1: "已上链"
-};
-const claimTypeMap = {
-  1: "静态",
-  2: "动态",
-  3: "节点"
-};
+
 const pageData: any = reactive({
   searchForm: {},
   searchField: [
@@ -52,19 +44,27 @@ const pageData: any = reactive({
         prop: "address",
         width: "370px"
       },
-      { label: "数量", prop: "amount", width: "120px", slot: "amountSlot" },
-
+      { label: "数量", prop: "amount", width: "170px", slot: "amountSlot" },
+      { label: "节点等级", prop: "nodeId", width: "170px", slot: "nodeSlot" },
       {
-        label: "收益类型",
-        prop: "claimType",
-        width: "120px",
-        slot: "claimTypeSlot"
+        label: "奖励代币",
+        prop: "rewardAmount",
+        width: "170px",
+        slot: "amountSlot"
       },
-      { label: "领取时间", width: "170px", prop: "createTime" },
-      { label: "上链时间", width: "170px", prop: "claimTime" },
-
-      { label: "状态", prop: "status", slot: "statusSlot" },
-      { label: "实际领取代币数量", width: "140px", slot: "amountSlot" }
+      {
+        label: "领取代币",
+        width: "170px",
+        prop: "rewardAmount",
+        slot: "amountSlot"
+      },
+      {
+        label: "起步业绩",
+        width: "170px",
+        prop: "startPerf",
+        slot: "amountSlot"
+      },
+      { label: "领取时间", width: "170px", prop: "createTime" }
     ],
     list: [],
     loading: false,
@@ -194,11 +194,8 @@ const deriveXlsx = async () => {
       <template #amountSlot="scope">
         <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
       </template>
-      <template #claimTypeSlot="scope">
-        <span>{{ claimTypeMap[scope.row[scope.column.property]] }}</span>
-      </template>
-       <template #statusSlot="scope">
-        <span>{{ statusMap[scope.row[scope.column.property]] }}</span>
+      <template #nodeSlot="scope">
+        <span>{{ nodeLevelMapConvert(scope.row[scope.column.property]) }}</span>
       </template>
     </pure-table>
   </el-card>

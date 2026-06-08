@@ -14,10 +14,14 @@ import {
 } from "@/utils/wallet";
 import { rewardTypeConvert } from "@/constants/convert";
 import { contractAddress } from "@/config/contract";
-import { saveExcelFile } from "@/utils/file";
 import { downloadExcel } from "@/utils/downloadExcel";
 import { ElMessage } from "element-plus";
-
+const statusMap = {
+  1: "静态",
+  2: "推荐",
+  3: "团队",
+  4: "节点释放"
+};
 const pageData: any = reactive({
   searchForm: {},
   searchField: [
@@ -26,32 +30,13 @@ const pageData: any = reactive({
       label: "钱包地址",
       prop: "address",
       placeholder: "请输入钱包地址"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "分奖日期范围",
-      prop: "dates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
     }
   ],
   dataSource: {},
-  permission: {
-    query: ["defi:user:page"]
-  },
+  permission: {},
   btnOpts: {
     size: "small",
-    leftBtns: [
-      {
-        key: "promotion",
-        label: "导出报表",
-        icon: "ep:promotion",
-        state: true,
-        loading: false
-      }
-    ],
+    leftBtns: [],
     rightBtns: [
       { key: "search", label: "查询", icon: "ep:search", state: true },
       { key: "refresh", label: "刷新", icon: "ep:refresh", state: true }
@@ -65,13 +50,18 @@ const pageData: any = reactive({
         width: "370px"
       },
       {
-        label: "来自钱包",
-        prop: "fromAddress",
+        label: "来源地址",
+        prop: "sourceAddress",
         width: "370px"
       },
-      { label: "奖励类型", prop: "rewardType", slot: "rewardTypeSlot" },
-      { label: "额度", prop: "amount", slot: "amountSlot" },
-      { label: "创建时间", prop: "createTime" }
+      { label: "数量", prop: "amount", width: "120px", slot: "amountSlot" },
+      {
+        label: "收益类型",
+        prop: "rewardType",
+        width: "160px",
+        slot: "statusSlot"
+      },
+      { label: "创建时间", width: "170px", prop: "createTime" }
     ],
     list: [],
     loading: false,
@@ -94,6 +84,7 @@ const _searchForm = (data: any) => {
   pageData.searchForm = data;
   _loadData();
 };
+onMounted(() => _loadData());
 
 // 重置
 const _resetSearchForm = (data?) => (pageData.searchForm = data);
@@ -159,7 +150,7 @@ const deriveXlsx = async () => {
 
   const result = await downloadExcel(
     () => $Api.exportXlsx(query),
-    "团队奖励分奖记录.xlsx"
+    "团队奖励分奖列表.xlsx"
   );
   if (result.success) {
     ElMessage.success("导出成功");
@@ -168,7 +159,6 @@ const deriveXlsx = async () => {
     pageData.btnOpts.leftBtns[0].loading = false;
   }
 };
-onMounted(() => _loadData());
 </script>
 
 <template>
@@ -198,11 +188,14 @@ onMounted(() => _loadData());
       @page-current-change="handleChangeCurrentPage"
       @page-size-change="handleChangePageSize"
     >
-      <template #rewardTypeSlot="scope">
-        <span>{{ rewardTypeConvert(scope.row[scope.column.property]) }}</span>
-      </template>
       <template #amountSlot="scope">
         <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
+      </template>
+      <template #claimTypeSlot="scope">
+        <span>{{ claimTypeMap[scope.row[scope.column.property]] }}</span>
+      </template>
+      <template #statusSlot="scope">
+        <span>{{ statusMap[scope.row[scope.column.property]] }}</span>
       </template>
     </pure-table>
   </el-card>

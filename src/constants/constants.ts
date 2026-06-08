@@ -76,7 +76,8 @@ export const typeMap: SelectOptionMap<string> = {
 };
 export const depositStatusMap: SelectOptionMap<string>[] = {
   0: "正常",
-  1: "结束"
+  1: "出局",
+  2: "暂停",
 };
 export const depositStatusOptions: SelectOption<number>[] = [
   { label: "正常", value: 0 },
@@ -124,7 +125,7 @@ export const rewardStaticMap: SelectOptionMap<string> = {
   0: "待审核",
   1: "成功",
   2: "拒绝",
-  3: "等待执行",
+  3: "等待执行"
 };
 export const rewardDynamicMap: SelectOptionMap<string> = {
   0: "待审核",
@@ -147,7 +148,7 @@ export const rewardDynamicOptions: SelectOption<number>[] = [
   { label: "成功", value: 1 },
   { label: "拒绝", value: 2 },
   { label: "等待执行", value: 3 },
-  { label: "检查中", value: 3 },
+  { label: "检查中", value: 3 }
 ];
 export const levelOptions: SelectOption<number>[] = [
   { label: "无", value: 0 },
@@ -245,14 +246,15 @@ export const isRepetitionOptions: SelectOption<number>[] = [
   { label: "未复投", value: false }
 ];
 export const userlevelMap: SelectOptionMap<string> = {
-  0: "无",
-  1: "F1",
-  2: "F2",
-  3: "F3",
-  4: "F4",
-  5: "F5",
-  6: "F6",
-  7: "F7"
+  1: "市场合伙人",
+  2: "生态合伙人",
+  3: "VDAO合伙人"
+};
+
+export const nodeLevelMap: SelectOptionMap<string> = {
+  0: "市场合伙人",
+  1: "生态合伙人",
+  2: "VDAO合伙人"
 };
 export const pidMap: SelectOptionMap<string> = {
   0: "1天",

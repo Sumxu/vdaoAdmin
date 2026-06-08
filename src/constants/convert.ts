@@ -42,6 +42,9 @@ export function userlevelConvert(value: number): string {
 export function miningMachineEarningsConvert(value: number): string {
   return constants.miningMachineEarningsMap[value];
 }
+export function nodeLevelMapConvert(value: number): string {
+  return constants.nodeLevelMap[value];
+}
 
 export function pledgeConvert(value: number): string {
   return constants.pledgeMap[value];

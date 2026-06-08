@@ -3,7 +3,7 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/member/teamClaim";
+import * as $Api from "@/api/member/queue";
 import message from "@/utils/message";
 import {
   formatAddress,
@@ -17,13 +17,10 @@ import { contractAddress } from "@/config/contract";
 import { downloadExcel } from "@/utils/downloadExcel";
 import { ElMessage } from "element-plus";
 const statusMap = {
-  0: "已领取",
-  1: "已上链"
-};
-const claimTypeMap = {
-  1: "静态",
-  2: "动态",
-  3: "节点"
+  0: "排单中",
+  1: "已完成",
+  2: "已取消",
+  9: "排单中"
 };
 const pageData: any = reactive({
   searchForm: {},
@@ -53,18 +50,10 @@ const pageData: any = reactive({
         width: "370px"
       },
       { label: "数量", prop: "amount", width: "120px", slot: "amountSlot" },
-
-      {
-        label: "收益类型",
-        prop: "claimType",
-        width: "120px",
-        slot: "claimTypeSlot"
-      },
-      { label: "领取时间", width: "170px", prop: "createTime" },
-      { label: "上链时间", width: "170px", prop: "claimTime" },
-
       { label: "状态", prop: "status", slot: "statusSlot" },
-      { label: "实际领取代币数量", width: "140px", slot: "amountSlot" }
+      { label: "实际领取代币数量", width: "140px", slot: "amountSlot" },
+      { label: "排序值", width: "170px", prop: "sort" },
+      { label: "创建时间", width: "170px", prop: "createTime" }
     ],
     list: [],
     loading: false,

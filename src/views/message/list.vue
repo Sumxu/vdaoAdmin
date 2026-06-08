@@ -3,87 +3,54 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/award/rewardStatic";
+import * as $Api from "@/api/message/list";
 import message from "@/utils/message";
+import { fromWei, callContractMethod } from "@/utils/wallet";
 import { downloadExcel } from "@/utils/downloadExcel";
+import { ElMessage, ElMessageBox, ElInput } from "element-plus";
 import {
-  fromWei,
-  callContractMethod,
-  toWei,
-  createWallet
-} from "@/utils/wallet";
-import { ElMessage,ElMessageBox,ElDatePicker } from "element-plus";
-import { rewardStaticOptions } from "@/constants/constants";
-import { rewardStaticMapConvert } from "@/constants/convert";
+  depositStatusOptions,
+  amountOptions,
+  userSetLevelOptions,
+  pidOptions,
+  pledgeTypeOptions,
+  pidMap,
+  isRepetitionOptions
+} from "@/constants/constants";
+import {
+  depositStatusConvert,
+  pidMapConvert,
+  pidScopeConvert
+} from "@/constants/convert";
 import { contractAddress } from "@/config/contract";
 import { saveExcelFile } from "@/utils/file";
-import distributorABI from "@/abi/distributorABI.ts";
-import Erc20ABI from "@/abi/Erc20.ts";
-import { storeToRefs } from "pinia";
-import { useWalletStoreHook } from "@/store/modules/wallet";
-import { MaxUint256 } from "ethers";
-const walletStore = useWalletStoreHook();
-const { currentAddress, addressList } = storeToRefs(walletStore);
+import StatusTabs from "@/components/opts/status-tabs.vue";
 const pageData: any = reactive({
   searchState: true,
   searchForm: {},
-  multipleSelection: [],
+  amountType: "", //派送类型
+  amountNumber: "", //派送数量
+  pid: "null",
   searchField: [
     {
       type: "input",
       label: "钱包地址",
       prop: "address",
       placeholder: "请输入钱包地址"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "日期范围",
-      prop: "dates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
-    },
-    {
-      type: "select",
-      label: "状态",
-      prop: "status",
-      placeholder: "请选择",
-      dataSourceKey: "rewardStaticOptions",
-      options: {
-        filterable: true,
-        keys: {
-          prop: "value",
-          value: "value",
-          label: "label"
-        }
-      }
     }
   ],
   dataSource: {
-    rewardStaticOptions: rewardStaticOptions
+    depositStatusOptions: depositStatusOptions,
+    pidOptions: pidOptions,
+    pledgeTypeOptions: pledgeTypeOptions,
+    isRepetitionOptions: isRepetitionOptions
   },
   permission: {
     query: ["defi:user:page"]
   },
   btnOpts: {
     size: "small",
-    leftBtns: [
-      {
-        key: "promotion",
-        label: "导出报表",
-        icon: "ep:promotion",
-        state: true
-      },
-      {
-        key: "pass",
-        label: "发奖",
-        icon: "ep:check",
-        type: "success",
-        state: true,
-        loading: false
-      }
-    ],
+    leftBtns: [],
     rightBtns: [
       { key: "search", label: "查询", icon: "ep:search", state: true },
       { key: "refresh", label: "刷新", icon: "ep:refresh", state: true }
@@ -96,9 +63,15 @@ const pageData: any = reactive({
         prop: "address",
         width: "370px"
       },
-      { label: "额度", prop: "amount", minWidth: "120px", slot: "amountScope" },
-      { label: "状态", prop: "status", minWidth: "120px", slot: "statusScope" },
-      { label: "日期", prop: "createDay" }
+      { label: "留言", prop: "message", minWidth: "120px" },
+      {
+        label: "回复",
+        prop: "reply"
+      },
+      { label: "联系方式", prop: "contacts", minWidth: "120px" },
+      { label: "回复时间", prop: "replyTime", width: "180px" },
+      { label: "创建时间", prop: "createTime", width: "180px" },
+      { label: "操作", fixed: "right", slot: "operation" }
     ],
     list: [],
     loading: false,
@@ -121,57 +94,7 @@ const _searchForm = (data: any) => {
   pageData.searchForm = data;
   _loadData();
 };
-const handlePass = async () => {
-  const date = ref<string | null>(null);
-  ElMessageBox({
-    title: "设置自动发送",
-    message: () =>
-      h("div", [
-        h(ElDatePicker, {
-          modelValue: date.value,
-          type: "date",
-          valueFormat: "YYYY-MM-DD",
-          placeholder: "选择日期",
-          style: "width: 100%; margin-bottom: 10px;",
-          "onUpdate:modelValue": (value: number) => (date.value = value),
-        }),
-      ]),
-    showCancelButton: true,
-    confirmButtonText: "确定",
-    cancelButtonText: "取消",
-    beforeClose: async (action, instance, done) => {
-      if (action === "confirm") {
-        if (!date.value) {
-          message.error("请填写完整信息！");
-          return;
-        }
-        instance.confirmButtonLoading = true;
-        instance.confirmButtonText = "计算中...";
-        $Api
-          .send<any>({
-            date: date.value,
-          })
-          .then((res: any) => {
-            if (res.code === 200) {
-              message.success("设置成功");
-              _loadData();
-              done();
-            } else {
-              instance.confirmButtonText = "确认";
-              instance.confirmButtonLoading = false;
-              message.warning(res.msg);
-            }
-          })
-          .catch((e) => {
-            instance.confirmButtonLoading = false;
-            instance.confirmButtonText = "确定";
-          });
-      } else {
-        done();
-      }
-    },
-  });
-};
+
 // 重置
 const _resetSearchForm = (data?) => (pageData.searchForm = data);
 
@@ -179,8 +102,10 @@ const _resetSearchForm = (data?) => (pageData.searchForm = data);
 const getQueryParams = () => ({
   ...pageData.searchForm,
   current: pageData.tableParams.pagination.currentPage,
-  size: pageData.tableParams.pagination.pageSize
+  size: pageData.tableParams.pagination.pageSize,
+  pid: pageData.pid
 });
+
 // 获取表格数据
 const _loadData = (page?: number) => {
   pageData.tableParams.list = [];
@@ -225,14 +150,7 @@ const btnClickHandle = (key: string) => {
     case "promotion":
       deriveXlsx();
       break;
-    case "pass":
-      handlePass();
-      break;
   }
-};
-
-const handleSelectionChange = val => {
-  pageData.multipleSelection = val;
 };
 //导出报表
 const deriveXlsx = async () => {
@@ -240,7 +158,7 @@ const deriveXlsx = async () => {
   pageData.btnOpts.leftBtns[0].loading = true;
   const result = await downloadExcel(
     () => $Api.exportXlsx(query),
-    "静态记录.xlsx"
+    "用户质押.xlsx"
   );
   if (result.success) {
     ElMessage.success("导出成功");
@@ -248,6 +166,65 @@ const deriveXlsx = async () => {
   } else {
     pageData.btnOpts.leftBtns[0].loading = false;
   }
+};
+const handleEdit = row => {
+  if (row.reply) {
+    return;
+  }
+  const replyContent = ref("");
+  const id = row.id;
+  ElMessageBox({
+    title: "回复留言",
+    message: () =>
+      h(ElInput, {
+        modelValue: replyContent.value,
+        "onUpdate:modelValue": val => {
+          replyContent.value = val;
+        },
+        type: "textarea",
+        rows: 5,
+        style: {
+          width: "400px"
+        },
+        placeholder: "请输入回复内容"
+      }),
+    showCancelButton: true,
+    beforeClose: async (action, instance, done) => {
+      if (action === "confirm") {
+        if (!replyContent.value?.trim()) {
+          message.warning("请输入回复内容");
+          return;
+        }
+
+        try {
+          instance.confirmButtonLoading = true;
+
+          const res: any = await $Api.reply({
+            id,
+            reply: replyContent.value
+          });
+
+          if (res.code === 200) {
+            message.success(res.msg);
+            _loadData();
+            done();
+          } else {
+            message.warning(res.msg);
+          }
+        } catch (err: any) {
+          message.error(err?.message || "请求失败");
+        } finally {
+          instance.confirmButtonLoading = false;
+        }
+      } else {
+        done();
+      }
+    }
+  });
+};
+const handleClick = (tabName: any) => {
+  pageData.pid = tabName;
+  _loadData();
 };
 onMounted(() => _loadData());
 </script>
@@ -271,21 +248,18 @@ onMounted(() => _loadData());
     <pure-table
       :data="pageData.tableParams.list"
       :columns="pageData.tableParams.columns"
+      row-key="address"
       border
       stripe
       :loading="pageData.tableParams.loading"
       :pagination="pageData.tableParams.pagination"
       @page-current-change="handleChangeCurrentPage"
-      @selection-change="handleSelectionChange"
       @page-size-change="handleChangePageSize"
     >
-      <template #statusScope="scope">
-        <span>{{
-          rewardStaticMapConvert(scope.row[scope.column.property])
-        }}</span>
-      </template>
-      <template #amountScope="scope">
-        <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
+      <template #operation="{ row }">
+        <el-link type="primary" @click="handleEdit(row)">{{
+          row.reply ? "已回复" : "回复"
+        }}</el-link>
       </template>
     </pure-table>
   </el-card>

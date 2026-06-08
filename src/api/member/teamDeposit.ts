@@ -1,4 +1,4 @@
-import { type Result, post, put ,get} from "../base";
+import { type Result, post, put, get } from "../base";
 
 /**
  * 列表查询
@@ -6,6 +6,5 @@ import { type Result, post, put ,get} from "../base";
  * @returns .
  */
 export function queryPage<T>(data?: any): Promise<Result<T>> {
-  return get("/member/memberReward/page", data);
+  return get("/user/getTeamDeposit", data);
 }
- 

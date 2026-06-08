@@ -6,7 +6,7 @@ import { type Result, post, put, get, ExportPost } from "../base";
  * @returns .
  */
 export function queryPage<T>(data?: any): Promise<Result<T>> {
-  return post("/user/page", data);
+  return get("/user/page", data);
 }
 export function exportXlsx<T>(data?: any): Promise<Result<T>> {
   return post("/user/export", data, {

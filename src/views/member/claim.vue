@@ -3,7 +3,7 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/member/teamClaim";
+import * as $Api from "@/api/member/claim";
 import message from "@/utils/message";
 import {
   formatAddress,

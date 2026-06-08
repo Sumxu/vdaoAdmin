@@ -3,7 +3,7 @@ import { reactive, ref, onMounted, h } from "vue";
 import FormSearch from "@/components/opts/form-search.vue";
 import TableButtons from "@/components/opts/btns2.vue";
 import { PureTable } from "@pureadmin/table";
-import * as $Api from "@/api/member/nftReward";
+import * as $Api from "@/api/member/swap";
 import message from "@/utils/message";
 import {
   formatAddress,
@@ -12,27 +12,11 @@ import {
   callContractMethod,
   toWei
 } from "@/utils/wallet";
-import {
-  levelOptions,
-  userLevelOptions,
-  userTypeMap,
-  userTypeOptions,
-  depositStatusOptions,
-  amountOptions,
-  userSetLevelOptions,
-  pidOptions
-} from "@/constants/constants";
-import {
-  userlevelConvert,
-  userTypeConvert,
-  pidMapConvert,
-  depositStatusConvert,
-  pidScopeConvert
-} from "@/constants/convert";
-import { ElMessageBox, ElSelect, ElOption, ElInput,ElMessage } from "element-plus";
+import { nodeLevelMapConvert } from "@/constants/convert";
 import { contractAddress } from "@/config/contract";
-import { saveExcelFile } from "@/utils/file";
 import { downloadExcel } from "@/utils/downloadExcel";
+import { ElMessage } from "element-plus";
+
 const pageData: any = reactive({
   searchForm: {},
   searchField: [
@@ -41,32 +25,13 @@ const pageData: any = reactive({
       label: "钱包地址",
       prop: "address",
       placeholder: "请输入钱包地址"
-    },
-    {
-      type: "date",
-      dateType: "datetimerange",
-      label: "Nft收益日期范围",
-      prop: "dates",
-      placeholder: "请输入日期范围",
-      startPlaceholder: "请输入开始日期范围",
-      endPlaceholder: "请输入结束日期范围"
     }
   ],
   dataSource: {},
-  permission: {
-    query: ["defi:user:page"]
-  },
+  permission: {},
   btnOpts: {
     size: "small",
-    leftBtns: [
-      {
-        key: "promotion",
-        label: "导出报表",
-        icon: "ep:promotion",
-        state: true,
-        loading: false
-      }
-    ],
+    leftBtns: [],
     rightBtns: [
       { key: "search", label: "查询", icon: "ep:search", state: true },
       { key: "refresh", label: "刷新", icon: "ep:refresh", state: true }
@@ -79,9 +44,24 @@ const pageData: any = reactive({
         prop: "address",
         width: "370px"
       },
-      { label: "NftId", prop: "tokenId" },
-      { label: "u数量", prop: "amount", slot: "amountSlot" },
-      { label: "ju数量", prop: "ju", slot: "juSlot" }
+      { label: "类型", prop: "pathType", width: "170px", slot: "pathTypeSlot" },
+      {
+        label: "输入VDAO数量",
+        prop: "amount0",
+        width: "170px",
+        slot: "amountSlot"
+      },
+      {
+        label: "得到USDT数量",
+        prop: "amount1",
+        width: "170px",
+        slot: "amountSlot"
+      },
+      {
+        label: "费率",
+        width: "170px",
+        prop: "feeAmount"
+      }
     ],
     list: [],
     loading: false,
@@ -104,6 +84,7 @@ const _searchForm = (data: any) => {
   pageData.searchForm = data;
   _loadData();
 };
+onMounted(() => _loadData());
 
 // 重置
 const _resetSearchForm = (data?) => (pageData.searchForm = data);
@@ -162,13 +143,14 @@ const btnClickHandle = (key: string) => {
   }
 };
 
+//导出报表
 const deriveXlsx = async () => {
   const query = getQueryParams();
   pageData.btnOpts.leftBtns[0].loading = true;
 
   const result = await downloadExcel(
     () => $Api.exportXlsx(query),
-    "NFT领取记录列表.xlsx"
+    "团队奖励分奖列表.xlsx"
   );
   if (result.success) {
     ElMessage.success("导出成功");
@@ -177,7 +159,6 @@ const deriveXlsx = async () => {
     pageData.btnOpts.leftBtns[0].loading = false;
   }
 };
-onMounted(() => _loadData());
 </script>
 
 <template>
@@ -210,8 +191,10 @@ onMounted(() => _loadData());
       <template #amountSlot="scope">
         <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
       </template>
-      <template #juSlot="scope">
-        <span>{{ fromWei(scope.row[scope.column.property]) }}</span>
+      <template #pathTypeSlot="scope">
+        <span>{{
+          scope.row[scope.column.property] == 1 ? "卖出" : "买入"
+        }}</span>
       </template>
     </pure-table>
   </el-card>

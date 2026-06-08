@@ -13,7 +13,7 @@ interface CallItem {
 
 export async function multiCall(calls: CallItem[]) {
   try {
-    const provider = new ethers.JsonRpcProvider('https://rpc.juchain.org');
+    const provider = new ethers.JsonRpcProvider(contractAddress.rpcUrl);
     const multicall = new ethers.Contract(
       contractAddress.multiCallToken,
       MULTICALL_ABI,
