@@ -1,0 +1,16 @@
+import { type Result, post, put, get } from "../base";
+
+/**
+ * 列表查询
+ * @param query .
+ * @returns .
+ */
+export function queryPage<T>(data?: any): Promise<Result<T>> {
+  return post("/deposit/page", data);
+}
+export function exportXlsx<T>(data?: any): Promise<Result<T>> {
+  return post("/deposit/export", data, {
+    responseType: "blob",
+    timeout: 300000 // 5分钟
+  });
+}
